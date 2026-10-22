@@ -8,6 +8,8 @@ Frames (see the ledger in drone_v2.urdf):
   base_link: origin = centre of the 4 motor axes, at the FC board plane (fc-1 origin);
              x = nose (diagonal towards camera, +X+Z assembly), y = left, z = up.
   prop_N:    origin = propeller hub (prop part origin), axes parallel to base_link.
+  camera_tilt_link: origin on the servo output axis; at joint 0 the camera looks straight
+             down (axes parallel to base_link), geometry is rotated back from its CAD pose.
 """
 import pickle, sys
 import numpy as np
@@ -27,6 +29,12 @@ PROPS = {  # assembly component -> URDF link
 MAX_TRIS_PER_LEAF = 4000  # decimate heavy vendor STEP parts (Pi heatsink, nuts)
 VISUAL_SKIP = "Stator_Coil"  # 48 coils hidden inside the motor bells, ~94k tris each and
                              # don't decimate; dropped from the visual mesh, kept for inertia
+# GiaCam3A turns on the servo output shaft; the camera module is mated to it.
+CAMERA = ("GiaCam3A-1", "Camera Module Assem.STEP-1")
+# Assembly-space mate data read with sw_mates.py (Assem1.SLDASM, 2026-10-22):
+SERVO_AXIS_POINT_ASM = np.array([0.3502, 0.01644, 0.20609])  # Concentric91, servo shaft
+SERVO_AXIS_DIR_ASM = np.array([-0.70711, 0.0, 0.70711])
+LENS_DIR_ASM = np.array([0.69771, -0.16245, 0.69771])  # Concentric92, sign: towards Lenz part
 
 def xf(l):
     x = np.array(l["xform"])
@@ -89,7 +97,7 @@ def report(name, m, c, I):
     print(f"[{name}] mass={m:.5f} com={c.round(5)}\n  ixx={I[0,0]:.4e} iyy={I[1,1]:.4e} izz={I[2,2]:.4e}"
           f" ixy={I[0,1]:.3e} ixz={I[0,2]:.3e} iyz={I[1,2]:.3e}")
 
-base = [l for l in leaves if l["top"] not in PROPS]
+base = [l for l in leaves if l["top"] not in PROPS and l["top"] not in CAMERA]
 save("base_link", np.concatenate([leaf_tris_base(l) for l in base if VISUAL_SKIP not in l["name"]]))
 report("base_link", *combine([leaf_inertia_base(l) for l in base]))
 
@@ -99,6 +107,21 @@ for top, link in PROPS.items():
     print(f"joint {link}: origin xyz={hub.round(5)}")
     save(link, leaf_tris_base(l) - hub)
     report(link, *combine([leaf_inertia_base(l)], hub))
+
+# camera tilt: joint axis 0 -1 0 so positive angle turns the view from straight down towards
+# the nose, same as camera_tilt.py (tilt_deg + towards nose, 0 = straight down)
+axis = RB @ SERVO_AXIS_DIR_ASM
+assert np.allclose(np.abs(axis), [0, 1, 0], atol=1e-4), axis
+pivot = to_base(SERVO_AXIS_POINT_ASM)
+lens = RB @ LENS_DIR_ASM
+q_cad = np.arctan2(lens[0], -lens[2])
+c, s_ = np.cos(q_cad), np.sin(q_cad)
+RQ = np.array([[c, 0, -s_], [0, 1, 0], [s_, 0, c]])  # rotation about -Y by q_cad, base <- child
+print(f"joint camera_tilt_joint: origin xyz={pivot.round(5)}  CAD pose tilt={np.degrees(q_cad):.1f} deg")
+cam = [l for l in leaves if l["top"] in CAMERA]
+save("camera_tilt_link", ((np.concatenate([leaf_tris_base(l) for l in cam]) - pivot) @ RQ))
+m, com, I = combine([leaf_inertia_base(l) for l in cam])
+report("camera_tilt_link", m, RQ.T @ (com - pivot), RQ.T @ I @ RQ)
 
 # cross-check against SolidWorks whole-assembly mass properties (assembly axes, about COM)
 m, c, I = combine([leaf_inertia_base(l) for l in leaves])

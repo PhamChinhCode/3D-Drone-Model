@@ -9,17 +9,26 @@
   inertials: SolidWorks mass properties per part, combined (parallel-axis) per link by build_meshes.py;
     whole-drone sum checked against SolidWorks assembly mass properties (mass 0.76789 kg, tensor equal)
   links:
-    base_link        physical; everything except the 4 propellers (frame, arms, motors, FC, Pi 5,
-                     battery, sensors, gripper servo, landing legs). Origin = centre of the 4 motor
-                     axes, height = FC board plane (fc-1 part origin).
+    base_link        physical; everything except the 4 propellers and the tilting camera (frame, arms,
+                     motors, FC, Pi 5, battery, sensors, camera servo + bracket GiaCam3, landing
+                     legs). Origin = centre of the 4 motor axes, height = FC board plane (fc-1 origin).
     prop_front_left  physical; frame = propeller hub on the motor axis, axes parallel to base_link
     prop_front_right, prop_rear_left, prop_rear_right: same
+    camera_tilt_link physical; GiaCam3A + Camera Module. Frame on the servo output axis; at joint 0
+                     its axes are parallel to base_link and the lens looks straight down (-Z)
   joints (all continuous, parent base_link, hub at z=+0.036, motor axis distance 0.2878 m):
     prop_front_left_joint   xyz=(+0.20349 +0.20349 0.036)  axis 0 0 -1  (CW prop)
     prop_front_right_joint  xyz=(+0.20349 -0.20349 0.036)  axis 0 0 1   (CCW prop)
     prop_rear_left_joint    xyz=(-0.20349 +0.20349 0.036)  axis 0 0 1   (CCW prop)
     prop_rear_right_joint   xyz=(-0.20349 -0.20349 0.036)  axis 0 0 -1  (CW prop)
     positive joint motion = the propeller's real spin direction
+  camera_tilt_joint: revolute, parent base_link, xyz=(0.09525 -0.018 -0.05218), axis 0 -1 0
+    angle 0 = looking straight down, positive = view tilts towards the nose, so the
+    joint angle in rad equals tilt_deg of drone_mission/camera_tilt.py (mission.yaml table).
+    Source: CAD mate Concentric91 (servo shaft <-> GiaCam3A), the only free DOF of GiaCam3A;
+    lens direction from mate Concentric92. CAD pose is 80.7 deg (no angle mate), outside the
+    servo range, so the mesh is rotated back to the 0 pose by scripts/build_meshes.py.
+    limits -20.0 .. 48.8 deg = ends of the measured tilt table (mission.yaml, 2026-10-22)
   collision: base_link = bounding box of the base mesh (envelope incl. motors and legs);
              props = disc cylinder r 0.1016 (8 in) over the blade thickness
   assumptions:
@@ -33,14 +42,17 @@
     using these inertials for dynamics.
   - 48 stator coils (inside the motor bells) are left out of the visual mesh, kept in the inertia
   - vendor STEP parts decimated to <= 4000 triangles each in the visual mesh
+  - camera_tilt effort 0.16 N*m / velocity 10.5 rad/s from the ES08MD II datasheet (1.6 kg*cm,
+    0.10 s/60 deg), not measured
 -->
+
 <robot name="drone_v2">
   <link name="base_link">
     <inertial>
-      <origin xyz="0.00626 -0.00008 -0.02507" rpy="0 0 0" />
-      <mass value="0.74346" />
+      <origin xyz="0.00513 -0.00007 -0.02452" rpy="0 0 0" />
+      <mass value="0.73432" />
       <!-- SolidWorks mass properties combined by scripts/build_meshes.py, about COM, base_link axes -->
-      <inertia ixx="6.5530e-03" ixy="-2.618e-06" ixz="1.176e-04" iyy="7.2276e-03" iyz="1.566e-06" izz="1.2776e-02" />
+      <inertia ixx="6.5320e-03" ixy="-2.935e-06" ixz="8.036e-05" iyy="7.1315e-03" iyz="1.800e-06" izz="1.2698e-02" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -143,6 +155,29 @@
       </geometry>
     </collision>
   </link>
+  <link name="camera_tilt_link">
+    <inertial>
+      <origin xyz="0.00046 0.01756 -0.01711" rpy="0 0 0" />
+      <mass value="0.00914" />
+      <inertia ixx="2.9758e-06" ixy="2.205e-09" ixz="5.890e-09" iyy="1.5371e-06" iyz="-8.520e-08" izz="2.0623e-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/camera_tilt_link.stl" />
+      </geometry>
+      <material name="camera_green">
+        <color rgba="0.1 0.5 0.3 1" />
+      </material>
+    </visual>
+    <collision>
+      <!-- camera_tilt_link mesh bbox: x -0.0125..0.015, y -0.003..0.037, z -0.0418..0.01 -->
+      <origin xyz="0.00125 0.017 -0.0159" rpy="0 0 0" />
+      <geometry>
+        <box size="0.0275 0.04 0.0518" />
+      </geometry>
+    </collision>
+  </link>
   <joint name="prop_front_left_joint" type="continuous">
     <parent link="base_link" />
     <child link="prop_front_left" />
@@ -166,5 +201,12 @@
     <child link="prop_rear_right" />
     <origin xyz="-0.20349 -0.20349 0.036" rpy="0 0 0" />
     <axis xyz="0 0 -1" />
+  </joint>
+  <joint name="camera_tilt_joint" type="revolute">
+    <parent link="base_link" />
+    <child link="camera_tilt_link" />
+    <origin xyz="0.09525 -0.018 -0.05218" rpy="0 0 0" />
+    <axis xyz="0 -1 0" />
+    <limit lower="-0.34907" upper="0.85172" effort="0.16" velocity="10.5" />
   </joint>
 </robot>

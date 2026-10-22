@@ -1,6 +1,10 @@
 # drone_v2 URDF
 
-URDF của `Assem1.SLDASM` (khung Version2.0): `base_link` + 4 cánh quạt (joint `continuous`).
+URDF của `Assem1.SLDASM` (khung Version2.0): `base_link` + 4 cánh quạt (joint `continuous`)
++ camera nghiêng `camera_tilt_link` (GiaCam3A + camera, joint `revolute` quanh trục servo).
+
+`camera_tilt_joint`: 0 = nhìn thẳng xuống, dương = ngóc về mũi, giới hạn −20…48,8° (bảng
+`tilt_deg` trong `drone_bringup/config/mission.yaml`). Góc khớp (rad) = `tilt_deg` của `camera_tilt.py`.
 
 ```
 assembly_urdf/
