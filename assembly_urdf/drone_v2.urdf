@@ -1,0 +1,170 @@
+<?xml version="1.0"?>
+<!--
+  robot: drone_v2 | consumers: RViz / robot_state_publisher, Gazebo, CAD Viewer
+  units: meters, kilograms, radians | frames: +X forward (nose), +Y left, +Z up (REP-103)
+  root: base_link | source of dimensions: Assem1.SLDASM (SolidWorks, repo root), read via COM
+  meshes: meshes/, STL exported per-link in the link frame, source units m, no scale
+    - scripts/sw_tess.py tessellates every visible leaf part of Assem1.SLDASM (part frame + transform)
+    - scripts/build_meshes.py moves them into the link frames, decimates, writes STL, prints inertials
+  inertials: SolidWorks mass properties per part, combined (parallel-axis) per link by build_meshes.py;
+    whole-drone sum checked against SolidWorks assembly mass properties (mass 0.76789 kg, tensor equal)
+  links:
+    base_link        physical; everything except the 4 propellers (frame, arms, motors, FC, Pi 5,
+                     battery, sensors, gripper servo, landing legs). Origin = centre of the 4 motor
+                     axes, height = FC board plane (fc-1 part origin).
+    prop_front_left  physical; frame = propeller hub on the motor axis, axes parallel to base_link
+    prop_front_right, prop_rear_left, prop_rear_right: same
+  joints (all continuous, parent base_link, hub at z=+0.036, motor axis distance 0.2878 m):
+    prop_front_left_joint   xyz=(+0.20349 +0.20349 0.036)  axis 0 0 -1  (CW prop)
+    prop_front_right_joint  xyz=(+0.20349 -0.20349 0.036)  axis 0 0 1   (CCW prop)
+    prop_rear_left_joint    xyz=(-0.20349 +0.20349 0.036)  axis 0 0 1   (CCW prop)
+    prop_rear_right_joint   xyz=(-0.20349 -0.20349 0.036)  axis 0 0 -1  (CW prop)
+    positive joint motion = the propeller's real spin direction
+  collision: base_link = bounding box of the base mesh (envelope incl. motors and legs);
+             props = disc cylinder r 0.1016 (8 in) over the blade thickness
+  assumptions:
+  - NOSE: assembly has no marked forward; +X is taken as the diagonal towards the camera
+    (assembly +X+Z), with the optical flow/ToF on the opposite diagonal. Verify against the FC arrow.
+  - assembly up axis = +Y (props above motors), mapped to base_link +Z
+  - CW/CCW taken from the propeller part names, as seen from above; matches Betaflight
+    Quad-X "props in" (front-left CW)
+  - MASSES ARE CAD ESTIMATES: almost every part uses SolidWorks default density 1000 kg/m^3
+    (motors 9.7 g in CAD vs ~50 g real, battery 158 g). Weigh the drone and rescale before
+    using these inertials for dynamics.
+  - 48 stator coils (inside the motor bells) are left out of the visual mesh, kept in the inertia
+  - vendor STEP parts decimated to <= 4000 triangles each in the visual mesh
+-->
+<robot name="drone_v2">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.00626 -0.00008 -0.02507" rpy="0 0 0" />
+      <mass value="0.74346" />
+      <!-- SolidWorks mass properties combined by scripts/build_meshes.py, about COM, base_link axes -->
+      <inertia ixx="6.5530e-03" ixy="-2.618e-06" ixz="1.176e-04" iyy="7.2276e-03" iyz="1.566e-06" izz="1.2776e-02" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/base_link.stl" />
+      </geometry>
+      <material name="frame_grey">
+        <color rgba="0.35 0.35 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <!-- base mesh bbox: x,y +-0.2247, z -0.155..0.078 -->
+      <origin xyz="0 0 -0.0385" rpy="0 0 0" />
+      <geometry>
+        <box size="0.4494 0.4494 0.233" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="prop_front_left">
+    <inertial>
+      <origin xyz="0 0 0.00128" rpy="0 0 0" />
+      <mass value="0.00611" />
+      <inertia ixx="1.2028e-05" ixy="2.996e-06" ixz="0" iyy="9.1273e-07" iyz="0" izz="1.2887e-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/prop_front_left.stl" />
+      </geometry>
+      <material name="prop_cw">
+        <color rgba="0.1 0.1 0.1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.00125" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.1016" length="0.0095" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="prop_front_right">
+    <inertial>
+      <origin xyz="0 0 0.00129" rpy="0 0 0" />
+      <mass value="0.00611" />
+      <inertia ixx="1.2573e-05" ixy="1.626e-06" ixz="0" iyy="3.6951e-07" iyz="0" izz="1.2888e-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/prop_front_right.stl" />
+      </geometry>
+      <material name="prop_ccw">
+        <color rgba="0.8 0.3 0.1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.00125" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.1016" length="0.0095" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="prop_rear_left">
+    <inertial>
+      <origin xyz="0 0 0.00129" rpy="0 0 0" />
+      <mass value="0.00611" />
+      <inertia ixx="3.9718e-06" ixy="-5.799e-06" ixz="0" iyy="8.9705e-06" iyz="0" izz="1.2888e-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/prop_rear_left.stl" />
+      </geometry>
+      <material name="prop_ccw" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.00125" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.1016" length="0.0095" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="prop_rear_right">
+    <inertial>
+      <origin xyz="0 0 0.00128" rpy="0 0 0" />
+      <mass value="0.00611" />
+      <inertia ixx="5.3798e-06" ixy="-6.219e-06" ixz="0" iyy="7.5613e-06" iyz="0" izz="1.2887e-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/prop_rear_right.stl" />
+      </geometry>
+      <material name="prop_cw" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.00125" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.1016" length="0.0095" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="prop_front_left_joint" type="continuous">
+    <parent link="base_link" />
+    <child link="prop_front_left" />
+    <origin xyz="0.20349 0.20349 0.036" rpy="0 0 0" />
+    <axis xyz="0 0 -1" />
+  </joint>
+  <joint name="prop_front_right_joint" type="continuous">
+    <parent link="base_link" />
+    <child link="prop_front_right" />
+    <origin xyz="0.20349 -0.20349 0.036" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+  <joint name="prop_rear_left_joint" type="continuous">
+    <parent link="base_link" />
+    <child link="prop_rear_left" />
+    <origin xyz="-0.20349 0.20349 0.036" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+  </joint>
+  <joint name="prop_rear_right_joint" type="continuous">
+    <parent link="base_link" />
+    <child link="prop_rear_right" />
+    <origin xyz="-0.20349 -0.20349 0.036" rpy="0 0 0" />
+    <axis xyz="0 0 -1" />
+  </joint>
+</robot>
