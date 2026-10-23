@@ -28,7 +28,7 @@
     Source: CAD mate Concentric91 (servo shaft <-> GiaCam3A), the only free DOF of GiaCam3A;
     lens direction from mate Concentric92. CAD pose is 80.7 deg (no angle mate), outside the
     servo range, so the mesh is rotated back to the 0 pose by scripts/build_meshes.py.
-    limits -20.0 .. 48.8 deg = ends of the measured tilt table (mission.yaml, 2026-10-22)
+    limits -36.0 .. 48.8 deg = ends of the tilt table (mission.yaml, 2026-10-22; -36 = grip angle)
   collision: base_link = bounding box of the base mesh (envelope incl. motors and legs);
              props = disc cylinder r 0.1016 (8 in) over the blade thickness
   assumptions:
@@ -207,6 +207,6 @@
     <child link="camera_tilt_link" />
     <origin xyz="0.09525 -0.018 -0.05218" rpy="0 0 0" />
     <axis xyz="0 -1 0" />
-    <limit lower="-0.34907" upper="0.85172" effort="0.16" velocity="10.5" />
+    <limit lower="-0.62832" upper="0.85172" effort="0.16" velocity="10.5" />
   </joint>
 </robot>
