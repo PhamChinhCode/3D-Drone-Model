@@ -7,11 +7,13 @@
     - scripts/sw_tess.py tessellates every visible leaf part of Assem1.SLDASM (part frame + transform)
     - scripts/build_meshes.py moves them into the link frames, decimates, writes STL, prints inertials
   inertials: SolidWorks mass properties per part, combined (parallel-axis) per link by build_meshes.py;
-    whole-drone sum checked against SolidWorks assembly mass properties (mass 0.76789 kg, tensor equal)
+    whole-drone sum checked against SolidWorks assembly mass properties (mass 0.81798 kg, tensor equal,
+    Assem1.SLDASM 2026-10-25 with the MG90 gripper)
   links:
-    base_link        physical; everything except the 4 propellers and the tilting camera (frame, arms,
-                     motors, FC, Pi 5, battery, sensors, camera servo + bracket GiaCam3, landing
-                     legs). Origin = centre of the 4 motor axes, height = FC board plane (fc-1 origin).
+    base_link        physical; everything except the 4 propellers, the tilting camera and the moving
+                     gripper parts (frame, arms, motors, FC, Pi 5, battery, sensors, camera servo +
+                     bracket GiaCam3, MG90 body + GiaPinServo + jaw pin plate GiaPin-1, landing legs).
+                     Origin = centre of the 4 motor axes, height = FC board plane (fc-1 origin).
     prop_front_left  physical; frame = propeller hub on the motor axis, axes parallel to base_link
     prop_front_right, prop_rear_left, prop_rear_right: same
     camera_tilt_link physical; GiaCam3A + Camera Module. Frame on the servo output axis; at joint 0
@@ -26,11 +28,32 @@
     angle 0 = looking straight down, positive = view tilts towards the nose, so the
     joint angle in rad equals tilt_deg of drone_mission/camera_tilt.py (mission.yaml table).
     Source: CAD mate Concentric91 (servo shaft <-> GiaCam3A), the only free DOF of GiaCam3A;
-    lens direction from mate Concentric92. CAD pose is 80.7 deg (no angle mate), outside the
+    lens direction from mate Concentric92. CAD pose had no angle mate (80.7 deg on 10-22), outside the
     servo range, so the mesh is rotated back to the 0 pose by scripts/build_meshes.py.
+    (CAD pose 98.2 deg in the 10-25 assembly.)
     limits -36.0 .. 48.8 deg = ends of the tilt table (mission.yaml, 2026-10-22; -36 = grip angle)
+  gripper (MG90 under the battery strap, 2026-10-25): every pin is parallel to base_link X, every
+    link frame sits on its pin with axes parallel to base_link, joint 0 = CAD pose.
+    gripper_servo_joint   revolute, base_link -> gripper_servo_link (MG90 gear/horn + shaft),
+                          xyz=(-0.00225 0 -0.08462), axis 1 0 0. THE ACTUATED JOINT.
+                          0 = CAD pose = jaws fully CLOSED: horn in line with the rods (toggle, self
+                          locking), finger gap 119.2 mm = holds the 120 mm box.
+                          -120 deg = OPEN: gap 242 mm, finger bottoms at z -0.153 (leg plane -0.155).
+                          The mechanism is symmetric in +/- servo angle; the negative side is used.
+    gripper_rod_left_joint   servo link -> CauNoi-2, on the horn hole y -9.27 mm (rods cross over)
+    gripper_rod_right_joint  servo link -> CauNoi-3, on the horn hole y +9.27 mm
+    gripper_jaw_left_joint   base_link -> GapHang-1 (+Y jaw), pin xyz=(0.0025 0.03151 -0.0625)
+    gripper_jaw_right_joint  base_link -> GapHang-2 (-Y jaw), pin xyz=(0.0025 -0.0315 -0.0625)
+    Each side is a closed four-bar (horn r 9.27 mm, rod 43.80 mm, jaw ear r 22.05 mm, pins from
+    mates Concentric101/102/117/118/121/122). URDF cannot close loops: the rod -> jaw ear pin is
+    cut and the 4 passive joints <mimic> the servo with a line through the exact closed and open
+    poses. Max mimic error over 0..-120 deg: jaw_left 10.2, jaw_right 7.4, rod_left 9.2,
+    rod_right 2.7 deg. Exact angles: four_bar() in scripts/build_meshes.py (the Gazebo sim drives
+    the 4 joints from the exact solution). Jaw opening is not symmetric (left 42.0, right 33.8
+    deg at -120) because the two rods cross on one horn.
   collision: base_link = bounding box of the base mesh (envelope incl. motors and legs);
-             props = disc cylinder r 0.1016 (8 in) over the blade thickness
+             props = disc cylinder r 0.1016 (8 in) over the blade thickness;
+             jaws = bounding box of the jaw mesh; servo horn and rods have none
   assumptions:
   - NOSE: assembly has no marked forward; +X is taken as the diagonal towards the camera
     (assembly +X+Z), with the optical flow/ToF on the opposite diagonal. Verify against the FC arrow.
@@ -44,15 +67,18 @@
   - vendor STEP parts decimated to <= 4000 triangles each in the visual mesh
   - camera_tilt effort 0.16 N*m / velocity 10.5 rad/s from the ES08MD II datasheet (1.6 kg*cm,
     0.10 s/60 deg), not measured
+  - gripper_servo effort 0.18 N*m / velocity 10.5 rad/s from the MG90 datasheet (1.8 kg*cm,
+    0.10 s/60 deg), not measured; servo pulse <-> angle not calibrated, and which servo direction
+    opens on the real drone is not checked (CAD only fixes |angle|)
 -->
 
 <robot name="drone_v2">
   <link name="base_link">
     <inertial>
-      <origin xyz="0.00513 -0.00007 -0.02452" rpy="0 0 0" />
-      <mass value="0.73432" />
+      <origin xyz="0.00468 -0.00017 -0.02565" rpy="0 0 0" />
+      <mass value="0.75082" />
       <!-- SolidWorks mass properties combined by scripts/build_meshes.py, about COM, base_link axes -->
-      <inertia ixx="6.5320e-03" ixy="-2.935e-06" ixz="8.036e-05" iyy="7.1315e-03" iyz="1.800e-06" izz="1.2698e-02" />
+      <inertia ixx="6.5855e-03" ixy="-6.676e-06" ixz="6.128e-05" iyy="7.1876e-03" iyz="-6.558e-07" izz="1.2715e-02" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -178,6 +204,94 @@
       </geometry>
     </collision>
   </link>
+  <link name="gripper_servo_link">
+    <inertial>
+      <origin xyz="-0.00153 0 0" rpy="0 0 0" />
+      <mass value="0.00053" />
+      <inertia ixx="3.4802e-08" ixy="0" ixz="0" iyy="4.1397e-09" iyz="-2.257e-10" izz="3.2306e-08" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/gripper_servo_link.stl" />
+      </geometry>
+      <material name="gripper_white">
+        <color rgba="0.9 0.9 0.9 1" />
+      </material>
+    </visual>
+  </link>
+  <link name="gripper_rod_left">
+    <inertial>
+      <origin xyz="0.0015 0.02227 0.00224" rpy="0 0 0" />
+      <mass value="0.00078" />
+      <inertia ixx="1.6920e-07" ixy="0" ixz="0" iyy="6.7631e-09" iyz="8.777e-09" izz="1.6360e-07" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/gripper_rod_left.stl" />
+      </geometry>
+      <material name="gripper_white" />
+    </visual>
+  </link>
+  <link name="gripper_rod_right">
+    <inertial>
+      <origin xyz="0.0015 -0.0223 -0.00196" rpy="0 0 0" />
+      <mass value="0.00078" />
+      <inertia ixx="1.6920e-07" ixy="0" ixz="0" iyy="7.0117e-09" iyz="1.077e-08" izz="1.6335e-07" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/gripper_rod_right.stl" />
+      </geometry>
+      <material name="gripper_white" />
+    </visual>
+  </link>
+  <link name="gripper_jaw_left">
+    <inertial>
+      <origin xyz="-0.003 0.02411 -0.04402" rpy="0 0 0" />
+      <mass value="0.01576" />
+      <inertia ixx="2.4303e-05" ixy="0" ixz="0" iyy="2.4654e-05" iyz="6.557e-06" izz="6.3362e-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/gripper_jaw_left.stl" />
+      </geometry>
+      <material name="gripper_orange">
+        <color rgba="0.9 0.5 0.1 1" />
+      </material>
+    </visual>
+    <collision>
+      <!-- jaw mesh bbox: x -0.0235..0.0175, y -0.0066..0.0447, z -0.1303..0.0069 -->
+      <origin xyz="-0.003 0.01905 -0.0617" rpy="0 0 0" />
+      <geometry>
+        <box size="0.041 0.0513 0.1372" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="gripper_jaw_right">
+    <inertial>
+      <origin xyz="-0.003 -0.0241 -0.04403" rpy="0 0 0" />
+      <mass value="0.01576" />
+      <inertia ixx="2.4303e-05" ixy="0" ixz="0" iyy="2.4660e-05" iyz="-6.550e-06" izz="6.3308e-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/gripper_jaw_right.stl" />
+      </geometry>
+      <material name="gripper_orange" />
+    </visual>
+    <collision>
+      <!-- jaw mesh bbox: x -0.0235..0.0175, y -0.0447..0.0066, z -0.1303..0.0069 -->
+      <origin xyz="-0.003 -0.01905 -0.0617" rpy="0 0 0" />
+      <geometry>
+        <box size="0.041 0.0513 0.1372" />
+      </geometry>
+    </collision>
+  </link>
   <joint name="prop_front_left_joint" type="continuous">
     <parent link="base_link" />
     <child link="prop_front_left" />
@@ -208,5 +322,47 @@
     <origin xyz="0.09525 -0.018 -0.05218" rpy="0 0 0" />
     <axis xyz="0 -1 0" />
     <limit lower="-0.62832" upper="0.85172" effort="0.16" velocity="10.5" />
+  </joint>
+  <joint name="gripper_servo_joint" type="revolute">
+    <parent link="base_link" />
+    <child link="gripper_servo_link" />
+    <origin xyz="-0.00225 0 -0.08462" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <!-- -120 deg = open, 0 = closed (toggle) -->
+    <limit lower="-2.0944" upper="0" effort="0.18" velocity="10.5" />
+  </joint>
+  <joint name="gripper_rod_left_joint" type="revolute">
+    <parent link="gripper_servo_link" />
+    <child link="gripper_rod_left" />
+    <origin xyz="0 -0.00927 -0.00008" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <limit lower="0" upper="2.08298" effort="1" velocity="20" />
+    <mimic joint="gripper_servo_joint" multiplier="-0.9945" offset="0" />
+  </joint>
+  <joint name="gripper_rod_right_joint" type="revolute">
+    <parent link="gripper_servo_link" />
+    <child link="gripper_rod_right" />
+    <origin xyz="0 0.00927 0.00007" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <limit lower="0" upper="1.78045" effort="1" velocity="20" />
+    <mimic joint="gripper_servo_joint" multiplier="-0.8501" offset="0" />
+  </joint>
+  <joint name="gripper_jaw_left_joint" type="revolute">
+    <parent link="base_link" />
+    <child link="gripper_jaw_left" />
+    <origin xyz="0.0025 0.03151 -0.0625" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <!-- positive = jaw swings out to +Y (opens) -->
+    <limit lower="0" upper="0.73339" effort="1" velocity="10" />
+    <mimic joint="gripper_servo_joint" multiplier="-0.3502" offset="0" />
+  </joint>
+  <joint name="gripper_jaw_right_joint" type="revolute">
+    <parent link="base_link" />
+    <child link="gripper_jaw_right" />
+    <origin xyz="0.0025 -0.0315 -0.0625" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <!-- negative = jaw swings out to -Y (opens) -->
+    <limit lower="-0.58991" upper="0" effort="1" velocity="10" />
+    <mimic joint="gripper_servo_joint" multiplier="0.2817" offset="0" />
   </joint>
 </robot>
