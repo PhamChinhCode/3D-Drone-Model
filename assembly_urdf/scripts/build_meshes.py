@@ -53,7 +53,7 @@ GRIP_LINKS = {  # assembly component -> (URDF link, joint origin in assembly spa
     "CauNoi-2": ("gripper_rod_left", GRIP_HOLE_L_ASM),       # drives the left jaw
     "CauNoi-3": ("gripper_rod_right", GRIP_HOLE_R_ASM),
 }
-GRIP_OPEN_DEG = -120.0  # servo angle where the open finger bottoms reach the landing-leg plane
+GRIP_OPEN_DEG = -180.0  # full MG90 travel: second toggle, jaws fully open (56 deg), self locking
 
 def xf(l):
     x = np.array(l["xform"])
@@ -178,7 +178,9 @@ def four_bar(hole, ear, pivot, th):
     side = np.sign(np.cross(np.r_[p - h0, 0], np.r_[e0 - h0, 0])[2])
     e = next(c for c in (h + a * u + n, h + a * u - n)
              if np.sign(np.cross(np.r_[dv, 0], np.r_[c - h, 0])[2]) == side)
-    return ang(e - p) - ang(e0 - p), np.unwrap([0, ang(e - h) - ang(e0 - h0) - th])[1]
+    # rods turn past 180 deg towards the full opening: keep their angle in [-90, 270) deg
+    rod = (ang(e - h) - ang(e0 - h0) - th + np.pi / 2) % (2 * np.pi) - np.pi / 2
+    return ang(e - p) - ang(e0 - p), rod
 
 ths = np.radians(np.linspace(GRIP_OPEN_DEG, 0, 121))
 for name, hole, ear, piv in (("left", GRIP_HOLE_L_ASM, GRIP_EAR_L_ASM, GRIP_PIVOT_L_ASM),

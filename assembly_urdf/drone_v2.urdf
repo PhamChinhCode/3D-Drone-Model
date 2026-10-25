@@ -38,8 +38,11 @@
                           xyz=(-0.00225 0 -0.08462), axis 1 0 0. THE ACTUATED JOINT.
                           0 = CAD pose = jaws fully CLOSED: horn in line with the rods (toggle, self
                           locking), finger gap 119.2 mm = holds the 120 mm box.
-                          -120 deg = OPEN: gap 242 mm, finger bottoms at z -0.153 (leg plane -0.155).
-                          The mechanism is symmetric in +/- servo angle; the negative side is used.
+                          -180 deg = OPEN (full MG90 travel, second toggle, self locking): jaws
+                          56 deg out each, finger bottoms at z -0.110 (45 mm above the leg plane
+                          -0.155) - kept open whenever not gripping so the fingers never touch the
+                          ground. The mechanism is symmetric in +/- servo angle; the negative side
+                          is used. No body contact over 0..-180 deg (mesh clearance check).
     gripper_rod_left_joint   servo link -> CauNoi-2, on the horn hole y -9.27 mm (rods cross over)
     gripper_rod_right_joint  servo link -> CauNoi-3, on the horn hole y +9.27 mm
     gripper_jaw_left_joint   base_link -> GapHang-1 (+Y jaw), pin xyz=(0.0025 0.03151 -0.0625)
@@ -47,10 +50,10 @@
     Each side is a closed four-bar (horn r 9.27 mm, rod 43.80 mm, jaw ear r 22.05 mm, pins from
     mates Concentric101/102/117/118/121/122). URDF cannot close loops: the rod -> jaw ear pin is
     cut and the 4 passive joints <mimic> the servo with a line through the exact closed and open
-    poses. Max mimic error over 0..-120 deg: jaw_left 10.2, jaw_right 7.4, rod_left 9.2,
-    rod_right 2.7 deg. Exact angles: four_bar() in scripts/build_meshes.py (the Gazebo sim drives
-    the 4 joints from the exact solution). Jaw opening is not symmetric (left 42.0, right 33.8
-    deg at -120) because the two rods cross on one horn.
+    poses. Max mimic error over 0..-180 deg: jaw_left 8.6, jaw_right 9.0, rod_left 16.2,
+    rod_right 7.6 deg. Exact angles: four_bar() in scripts/build_meshes.py (the Gazebo sim drives
+    the 4 joints from the exact solution). Between the two toggles the jaws move unevenly (left
+    42.0, right 33.8 deg at -120) because the two rods cross on one horn; at -180 both are 56 deg.
   collision: base_link = bounding box of the base mesh (envelope incl. motors and legs);
              props = disc cylinder r 0.1016 (8 in) over the blade thickness;
              jaws = bounding box of the jaw mesh; servo horn and rods have none
@@ -328,24 +331,24 @@
     <child link="gripper_servo_link" />
     <origin xyz="-0.00225 0 -0.08462" rpy="0 0 0" />
     <axis xyz="1 0 0" />
-    <!-- -120 deg = open, 0 = closed (toggle) -->
-    <limit lower="-2.0944" upper="0" effort="0.18" velocity="10.5" />
+    <!-- -180 deg = fully open (toggle), 0 = closed (toggle) -->
+    <limit lower="-3.14159" upper="0" effort="0.18" velocity="10.5" />
   </joint>
   <joint name="gripper_rod_left_joint" type="revolute">
     <parent link="gripper_servo_link" />
     <child link="gripper_rod_left" />
     <origin xyz="0 -0.00927 -0.00008" rpy="0 0 0" />
     <axis xyz="1 0 0" />
-    <limit lower="0" upper="2.08298" effort="1" velocity="20" />
-    <mimic joint="gripper_servo_joint" multiplier="-0.9945" offset="0" />
+    <limit lower="0" upper="3.41901" effort="1" velocity="20" />
+    <mimic joint="gripper_servo_joint" multiplier="-1.0883" offset="0" />
   </joint>
   <joint name="gripper_rod_right_joint" type="revolute">
     <parent link="gripper_servo_link" />
     <child link="gripper_rod_right" />
     <origin xyz="0 0.00927 0.00007" rpy="0 0 0" />
     <axis xyz="1 0 0" />
-    <limit lower="0" upper="1.78045" effort="1" velocity="20" />
-    <mimic joint="gripper_servo_joint" multiplier="-0.8501" offset="0" />
+    <limit lower="0" upper="2.85854" effort="1" velocity="20" />
+    <mimic joint="gripper_servo_joint" multiplier="-0.9099" offset="0" />
   </joint>
   <joint name="gripper_jaw_left_joint" type="revolute">
     <parent link="base_link" />
@@ -353,8 +356,8 @@
     <origin xyz="0.0025 0.03151 -0.0625" rpy="0 0 0" />
     <axis xyz="1 0 0" />
     <!-- positive = jaw swings out to +Y (opens) -->
-    <limit lower="0" upper="0.73339" effort="1" velocity="10" />
-    <mimic joint="gripper_servo_joint" multiplier="-0.3502" offset="0" />
+    <limit lower="0" upper="0.97716" effort="1" velocity="10" />
+    <mimic joint="gripper_servo_joint" multiplier="-0.3110" offset="0" />
   </joint>
   <joint name="gripper_jaw_right_joint" type="revolute">
     <parent link="base_link" />
@@ -362,7 +365,7 @@
     <origin xyz="0.0025 -0.0315 -0.0625" rpy="0 0 0" />
     <axis xyz="1 0 0" />
     <!-- negative = jaw swings out to -Y (opens) -->
-    <limit lower="-0.58991" upper="0" effort="1" velocity="10" />
-    <mimic joint="gripper_servo_joint" multiplier="0.2817" offset="0" />
+    <limit lower="-0.97425" upper="0" effort="1" velocity="10" />
+    <mimic joint="gripper_servo_joint" multiplier="0.3101" offset="0" />
   </joint>
 </robot>
